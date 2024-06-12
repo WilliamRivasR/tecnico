@@ -14,7 +14,7 @@ try:
     conexion = mysql.connector.connect(
         host=host,
         user=user,
-        passwd="1234",
+        passwd="",
         database=database
     )
     cursor = conexion.cursor()
