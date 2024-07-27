@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from tkcalendar import DateEntry  # Importa DateEntry
+from tkcalendar import DateEntry
 import mysql.connector
 from mysql.connector import Error
 
@@ -10,13 +10,13 @@ password = '1234'
 host = 'localhost'
 database = 'biblioteca_escolar'
 
-def insertar_empleado():
-    Tipo_usuario = combo_tipo_usuario.get()  # Obtener el valor seleccionado del Combobox
+def actualizar_usuario():
+    Numero_documento = entrada_numero_documento.get()  # Obtener el número de documento para identificar el usuario
+    Tipo_usuario = combo_tipo_usuario.get()
     Nombre = entrada_nombre.get()
     Apellidos = entrada_apellido.get()
-    Fecha_nacimiento = entrada_fecha_nacimiento.get()  # Obtener la fecha seleccionada
-    Tipo_documento = combo_tipo_documento.get()  # Obtener el valor seleccionado del Combobox
-    Numero_documento = entrada_numero_documento.get()
+    Fecha_nacimiento = entrada_fecha_nacimiento.get()
+    Tipo_documento = combo_tipo_documento.get()
     Correo_electronico = entrada_correo.get()
     Contraseña = entrada_contrasena.get()
     Telefono = entrada_telefono.get()
@@ -31,23 +31,23 @@ def insertar_empleado():
         )
         cursor = conexion.cursor()
 
-        # Preparar consulta SQL para insertar usuario
-        insert_query = """
-            CALL InsertarUsuario(%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        # Preparar consulta SQL para llamar al procedimiento almacenado
+        update_query = """
+            CALL ActualizarUsuario(%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         # Preparar datos para la consulta
-        empleado_data = (Tipo_usuario, Nombre, Apellidos, Tipo_documento, Numero_documento, Fecha_nacimiento, Correo_electronico, Contraseña, Telefono)
+        usuario_data = (Numero_documento, Tipo_usuario, Nombre, Apellidos, Tipo_documento, Fecha_nacimiento, Correo_electronico, Contraseña, Telefono)
 
         # Ejecutar la consulta
-        cursor.execute(insert_query, empleado_data)
+        cursor.callproc('ActualizarUsuario', usuario_data)
         conexion.commit()  # Confirmar los cambios
 
         # Mostrar mensaje de éxito
-        mensaje.config(text="Usuario insertado correctamente!")
+        mensaje.config(text="Usuario actualizado correctamente!")
 
     except mysql.connector.Error as error:
         # Manejar errores de la base de datos
-        print(f"Error al insertar usuario: {error}")
+        print(f"Error al actualizar usuario: {error}")
         mensaje.config(text=f"Error: {error}")
 
     finally:
@@ -59,7 +59,13 @@ def insertar_empleado():
 # Crear la ventana principal
 ventana = tk.Tk()
 ventana.geometry("1000x600")
-ventana.title("Insertar Usuario")
+ventana.title("Actualizar Usuario")
+
+# Crear el campo de entrada para el número de documento
+label_numero_documento = tk.Label(ventana, text="Ingrese el número de documento del usuario a actualizar:")
+label_numero_documento.pack()
+entrada_numero_documento = tk.Entry(ventana)
+entrada_numero_documento.pack()
 
 # Etiqueta y Combobox para el tipo de usuario
 label_tipo_usuario = tk.Label(ventana, text="Seleccione el tipo de usuario:")
@@ -93,12 +99,6 @@ opciones_tipo_documento = ['CC', 'CE', 'PA', 'TI', 'PPT', 'PEP']  # Ajusta segú
 combo_tipo_documento = ttk.Combobox(ventana, values=opciones_tipo_documento, state='readonly')
 combo_tipo_documento.pack()
 
-# Crear el campo de entrada para el número de documento
-label_numero_documento = tk.Label(ventana, text="Ingrese el número de documento:")
-label_numero_documento.pack()
-entrada_numero_documento = tk.Entry(ventana)
-entrada_numero_documento.pack()
-
 # Crear el campo de entrada para el correo electrónico
 label_correo = tk.Label(ventana, text="Ingrese el correo electrónico:")
 label_correo.pack()
@@ -120,12 +120,8 @@ entrada_telefono.pack()
 mensaje = tk.Label(ventana, text="")
 mensaje.pack()
 
-button = tk.Button(ventana, text="Insertar Usuario", command=insertar_empleado)
+button = tk.Button(ventana, text="Actualizar Usuario", command=actualizar_usuario)
 button.pack()
 
 ventana.mainloop()
-
-
-
-
 
