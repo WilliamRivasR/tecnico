@@ -6,7 +6,7 @@ import mysql.connector
 
 # Configuración de la base de datos
 user = 'root'
-password = ''
+password = '1234'
 host = 'localhost'
 database = 'biblioteca_escolar'
 
@@ -176,6 +176,7 @@ def eliminar_empleado():
             conexion.close()
 
 def actualizar_empleado():
+    Numero_documento = entrada_numero_documento_actualizar.get()
     Nombre = entrada_nombre_actualizar.get()
     Apellidos = entrada_apellido_actualizar.get()
     Fecha_nacimiento = entrada_fecha_nacimiento_actualizar.get_date()
@@ -191,20 +192,23 @@ def actualizar_empleado():
             database=database
         )
         cursor = conexion.cursor()
-        update_query = """
-            CALL ActualizarUsuario( %s, %s, %s, %s, %s, %s)
-        """
-        empleado_data = (
+        # Llamar al procedimiento almacenado
+        cursor.callproc('ActualizarUsuario', [
+            Numero_documento if Numero_documento else None,
             Nombre if Nombre else None,
             Apellidos if Apellidos else None,
             Fecha_nacimiento if Fecha_nacimiento else None,
             Correo_electronico if Correo_electronico else None,
             Contraseña if Contraseña else None,
             Telefono if Telefono else None
-        )
-        cursor.execute(update_query, empleado_data)
+        ])
+
+        # Obtener el resultado del procedimiento almacenado
+        for result in cursor.stored_results():
+            mensaje = result.fetchone()[0]
+            mensaje_actualizar.config(text=mensaje)
+
         conexion.commit()
-        mensaje_actualizar.config(text="Usuario actualizado correctamente!")
     except mysql.connector.Error as error:
         mensaje_actualizar.config(text=f"Error al actualizar usuario: {error}")
     finally:
@@ -365,12 +369,6 @@ frame_actualizar.pack(fill=tk.BOTH, expand=True)
 # Título del frame de actualizar usuario
 titulo_actualizar = tk.Label(frame_actualizar, text="Actualizar Usuario", font=("Arial", 16, "bold"))
 titulo_actualizar.pack(pady=10)
-
-# Agregar el menú desplegable para tipo de documento
-tk.Label(frame_actualizar, text="Tipo de Documento:").pack(pady=5)
-opciones_tipo_documento = ['CC', 'CE', 'PA', 'TI', 'PPT', 'PEP']
-combo_tipo_documento = ttk.Combobox(frame_actualizar, values=opciones_tipo_documento, state='readonly')
-combo_tipo_documento.pack(pady=5)
 
 # Etiqueta y campos de entrada para actualizar usuario
 tk.Label(frame_actualizar, text="Número de Documento:").pack(pady=5)
