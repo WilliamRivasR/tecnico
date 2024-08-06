@@ -6,20 +6,26 @@ import mysql.connector
 
 # Configuración de la base de datos
 user = 'root'
-password = '1234'
+password = ''
 host = 'localhost'
 database = 'biblioteca_escolar'
 
-def mostrar_ventana_principal():
-    ventana_principal.pack(fill=tk.BOTH, expand=True)
-    frame_insertar.pack_forget()
+
+def ocultar_todos_frames():
     frame_buscar.pack_forget()
     frame_eliminar.pack_forget()
     frame_actualizar.pack_forget()
+    frame_prestar.pack_forget()
+    frame_registro.pack_forget()
 
-def mostrar_ventana_insertar():
-    ventana_principal.pack_forget()
-    frame_insertar.pack(fill=tk.BOTH, expand=True)
+def mostrar_ventana_principal():
+    ventana_principal.pack(fill=tk.BOTH, expand=True)
+    frame_buscar.pack_forget()
+    frame_eliminar.pack_forget()
+    frame_actualizar.pack_forget()
+    frame_prestar.pack_forget()
+    frame_login.pack_forget()
+
 
 def mostrar_ventana_buscar():
     ventana_principal.pack_forget()
@@ -33,16 +39,88 @@ def mostrar_ventana_actualizar():
     ventana_principal.pack_forget()
     frame_actualizar.pack(fill=tk.BOTH, expand=True)
 
-def insertar_empleado():
-    Tipo_usuario = combo_tipo_usuario.get().strip()
-    Nombre = entrada_nombre.get().strip()
-    Apellidos = entrada_apellido.get().strip()
-    Fecha_nacimiento = entrada_fecha_nacimiento.get_date()
-    Tipo_documento = combo_tipo_documento.get().strip()
-    Numero_documento = entrada_numero_documento.get().strip()
-    Correo_electronico = entrada_correo.get().strip()
-    Contraseña = entrada_contrasena.get().strip()
-    Telefono = entrada_telefono.get().strip()
+def mostrar_ventana_prestar():
+    ventana_principal.pack_forget()
+    frame_prestar.pack(fill=tk.BOTH, expand=True)
+
+
+def mostrar_ventana_login():
+    ventana_principal.pack_forget()
+    frame_registro.pack_forget()
+    frame_login.pack(fill=tk.BOTH, expand=True)
+
+def mostrar_ventana_registro():
+    frame_login.pack_forget()
+    frame_registro.pack(fill=tk.BOTH, expand=True)
+
+# Mostrar el frame de registro con desplazamiento
+    canvas_registro.pack(fill=tk.BOTH, expand=True)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+def centrar_frame_central(event):
+    # Obtener el tamaño del Canvas y del frame_central_registro
+    canvas_width = canvas_registro.winfo_width()
+    canvas_height = canvas_registro.winfo_height()
+    frame_central_width = frame_central_registro.winfo_reqwidth()
+    frame_central_height = frame_central_registro.winfo_reqheight()
+
+    # Calcular la posición central
+    x = (canvas_width - frame_central_width) // 2
+    y = (canvas_height - frame_central_height) // 2
+
+    # Colocar el frame_central_registro en el Canvas
+    canvas_registro.create_window((x, y), window=frame_central_registro, anchor="nw")
+
+    # Ajustar el scrollregion del Canvas
+    canvas_registro.config(scrollregion=canvas_registro.bbox("all"))
+
+# Función para iniciar sesión
+def iniciar_sesion():
+    correo = entrada_correo_login.get().strip()
+    contrasena = entrada_contrasena_login.get().strip()
+
+    if not correo or not contrasena:
+        mensaje_login.config(text="Por favor, ingrese correo electrónico y contraseña.")
+        return
+
+    try:
+        conexion = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conexion.cursor()
+        cursor.callproc('VerificarUsuario', [correo, contrasena])
+
+        # Recuperar el resultado del procedimiento almacenado
+        resultado = None
+        for result in cursor.stored_results():
+            resultado = result.fetchone()
+
+        if resultado and resultado[0] == 1:  # Asumimos que el procedimiento devuelve 1 si el usuario es válido
+            mensaje_login.config(text="Inicio de sesión exitoso.")
+            mostrar_ventana_principal()
+        else:
+            mensaje_login.config(text="Correo electrónico o contraseña incorrectos.")
+
+    except mysql.connector.Error as error:
+        mensaje_login.config(text=f"Error al iniciar sesión: {error}")
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+def registrar_usuario():
+    Tipo_usuario = combo_tipo_usuario_registro.get().strip()
+    Nombre = entrada_nombre_registro.get().strip()
+    Apellidos = entrada_apellido_registro.get().strip()
+    Fecha_nacimiento = entrada_fecha_nacimiento_registro.get_date()
+    Tipo_documento = combo_tipo_documento_registro.get().strip()
+    Numero_documento = entrada_numero_documento_registro.get().strip()
+    Correo_electronico = entrada_correo_registro.get().strip()
+    Contraseña = entrada_contrasena_registro.get().strip()
+    Telefono = entrada_telefono_registro.get().strip()
 
     try:
         conexion = mysql.connector.connect(
@@ -54,14 +132,14 @@ def insertar_empleado():
         cursor = conexion.cursor()
         cursor.callproc('InsertarUsuario', (Tipo_usuario, Nombre, Apellidos, Tipo_documento, Numero_documento, Fecha_nacimiento, Correo_electronico, Contraseña, Telefono))
         conexion.commit()
-        mensaje.config(text="Usuario insertado correctamente!")
+        mensaje_registro.config(text="Usuario registrado correctamente!")
     except mysql.connector.Error as error:
-        mensaje.config(text=f"Error al insertar usuario: {error}")
-        print(f"Error al insertar usuario: {error}")
+        mensaje_registro.config(text=f"Error al registrar usuario: {error}")
     finally:
         if conexion.is_connected():
             cursor.close()
             conexion.close()
+
 
 
 def mostrar_empleado():
@@ -79,15 +157,15 @@ def mostrar_empleado():
         """
         cursor.execute(select_query, (Numero_documento,))
         resultados = cursor.fetchall()
-        for row in tree.get_children():
-            tree.delete(row)
+        for row in tree_buscar.get_children():
+            tree_buscar.delete(row)
         if resultados:
             for row in resultados:
-                tree.insert("", "end", values=row)
+                tree_buscar.insert("", "end", values=row)
         else:
-            tree.insert("", "end", values=("No se encontró ningún usuario con ese número de documento.",))
+            tree_buscar.insert("", "end", values=("No se encontró ningún usuario con ese número de documento.",))
     except mysql.connector.Error as error:
-        tree.insert("", "end", values=("Error al consultar la base de datos.",))
+        tree_buscar.insert("", "end", values=("Error al consultar la base de datos.",))
     finally:
         if conexion.is_connected():
             cursor.close()
@@ -97,7 +175,71 @@ def mostrar_empleado():
 
 def mostrar_todos_usuarios():
     try:
-        # Establecer conexión con la base de datos
+        conexion = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conexion.cursor()
+        select_query = "SELECT * FROM usuarios"
+        cursor.execute(select_query)
+        resultados = cursor.fetchall()
+
+        for row in tree_buscar.get_children():
+            tree_buscar.delete(row)
+
+        if resultados:
+            for row in resultados:
+                tree_buscar.insert("", "end", values=row)
+        else:
+            tree_buscar.insert("", "end", values=("No se encontraron usuarios en la base de datos.",))
+    except mysql.connector.Error as error:
+        tree_buscar.insert("", "end", values=("Error al consultar la base de datos.",))
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+def mostrar_libros_disponibles():
+    try:
+        conexion = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conexion.cursor()
+        select_query = "SELECT * FROM libros WHERE Ejemplares_disponibles >= 1"
+        cursor.execute(select_query)
+        resultados = cursor.fetchall()
+
+        for row in tree_prestar.get_children():
+            tree_prestar.delete(row)
+
+        if resultados:
+            for row in resultados:
+                tree_prestar.insert("", "end", values=row)
+        else:
+            tree_prestar.insert("", "end", values=("No se encontraron libros en la base de datos.",))
+    except mysql.connector.Error as error:
+        tree_prestar.insert("", "end", values=("Error al consultar la base de datos.",))
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+
+def prestar_libro():
+    numero_documento = entrada_prestar_documento.get().strip()
+    ID_libro = entrada_prestar.get().strip()
+    fecha = entrada_prestar_fecha.get().strip()
+
+    if not numero_documento or not ID_libro:
+        messagebox.showwarning("Entrada Inválida", "Por favor, ingrese el número de documento y el ID del libro.")
+        return
+
+    try:
         conexion = mysql.connector.connect(
             host=host,
             user=user,
@@ -106,34 +248,16 @@ def mostrar_todos_usuarios():
         )
         cursor = conexion.cursor()
 
-        # Preparar consulta SQL para mostrar todos los usuarios
-        select_query = """
-            SELECT * FROM usuarios
-        """
-        cursor.execute(select_query)
+        # Obtener los libros prestados actuales
+        cursor.callproc('AgregarLibroPrestado', (numero_documento, ID_libro, fecha))
+        conexion.commit()
 
-        # Obtener los resultados
-        resultados = cursor.fetchall()
-        columnas = [desc[0] for desc in cursor.description]  # Obtener nombres de las columnas
-
-        # Limpiar el Treeview
-        for row in tree.get_children():
-            tree.delete(row)
-
-        if resultados:
-            # Insertar los datos en el Treeview
-            for row in resultados:
-                tree.insert("", "end", values=row)
-        else:
-            # Mostrar mensaje si no se encuentran resultados
-            tree.insert("", "end", values=("No se encontraron usuarios en la base de datos.",))
+        messagebox.showinfo("Éxito", "Libro prestado correctamente.")
 
     except mysql.connector.Error as error:
-        # Manejar errores de la base de datos
-        tree.insert("", "end", values=("Error al consultar la base de datos.",))
-
+        messagebox.showerror("Error", f"Error al prestar el libro: {error}")
+        print(f"Error al prestar el libro: {error}")
     finally:
-        # Cerrar la conexión a la base de datos
         if conexion.is_connected():
             cursor.close()
             conexion.close()
@@ -216,10 +340,166 @@ def actualizar_empleado():
             cursor.close()
             conexion.close()
 
+
+def buscar_informacion_usuario():
+    Numero_documento = entrada_numero_documento_actualizar.get().strip()
+
+    if not Numero_documento:
+        mensaje_actualizar.config(text="Por favor, ingrese un número de documento.")
+        return
+
+    try:
+        conexion = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conexion.cursor()
+        select_query = """
+            SELECT Nombre, Apellidos, Fecha_nacimiento, Correo_electronico, Telefono, Contraseña 
+            FROM usuarios 
+            WHERE Numero_documento = %s
+        """
+        cursor.execute(select_query, (Numero_documento,))
+        resultado = cursor.fetchone()
+
+        if resultado:
+            entrada_nombre_actualizar.delete(0, tk.END)
+            entrada_nombre_actualizar.insert(0, resultado[0])
+
+            entrada_apellido_actualizar.delete(0, tk.END)
+            entrada_apellido_actualizar.insert(0, resultado[1])
+
+            entrada_fecha_nacimiento_actualizar.set_date(resultado[2])
+
+            entrada_correo_actualizar.delete(0, tk.END)
+            entrada_correo_actualizar.insert(0, resultado[3])
+
+            entrada_telefono_actualizar.delete(0, tk.END)
+            entrada_telefono_actualizar.insert(0, resultado[4])
+
+            entrada_contrasena_actualizar.delete(0, tk.END)
+            entrada_contrasena_actualizar.insert(0, resultado[5])
+
+            mensaje_actualizar.config(text="Información del usuario cargada correctamente.")
+        else:
+            mensaje_actualizar.config(text="No se encontró ningún usuario con ese número de documento.")
+
+    except mysql.connector.Error as error:
+        mensaje_actualizar.config(text=f"Error al buscar usuario: {error}")
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+
+
 # Crear la ventana principal
 ventana = tk.Tk()
 ventana.geometry("1200x700")
 ventana.title("Gestión de Usuarios")
+
+
+# Frame para inicio de sesión
+frame_login = tk.Frame(ventana)
+
+# Título del frame de inicio de sesión
+titulo_login = tk.Label(frame_login, text="Iniciar Sesión", font=("Arial", 16, "bold"))
+titulo_login.pack(pady=10)
+
+# Etiqueta y campo de entrada para el correo electrónico
+tk.Label(frame_login, text="Correo Electrónico:").pack(pady=5)
+entrada_correo_login = tk.Entry(frame_login)
+entrada_correo_login.pack(pady=5)
+
+# Etiqueta y campo de entrada para la contraseña
+tk.Label(frame_login, text="Contraseña:").pack(pady=5)
+entrada_contrasena_login = tk.Entry(frame_login, show='*')
+entrada_contrasena_login.pack(pady=5)
+
+# Mensaje de error para inicio de sesión
+mensaje_login = tk.Label(frame_login, text="")
+mensaje_login.pack(pady=10)
+tk.Button(frame_login, text="Iniciar Sesión", command=iniciar_sesion, width=20).pack(pady=10)
+tk.Button(frame_login, text="Registrarse", command=mostrar_ventana_registro, width=20).pack(pady=10)
+
+# Frame para registro de usuario
+frame_registro = tk.Frame(ventana)
+frame_registro.pack(fill=tk.BOTH, expand=True)
+
+# Crear Canvas y Scrollbar para el frame de registro
+canvas_registro = tk.Canvas(frame_registro)
+scrollbar = tk.Scrollbar(frame_registro, orient="vertical", command=canvas_registro.yview)
+canvas_registro.configure(yscrollcommand=scrollbar.set)
+
+# Colocar el Canvas y el Scrollbar en el frame_registro
+canvas_registro.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+# Crear un Frame dentro del Canvas para centrar el contenido
+frame_central_registro = tk.Frame(canvas_registro)
+
+# Configurar el Canvas para que ajuste el frame_central_registro
+canvas_registro.create_window((0, 0), window=frame_central_registro, anchor="nw")
+
+# Asociar el evento de ajuste de tamaño para centrar el frame
+canvas_registro.bind("<Configure>", centrar_frame_central)
+
+# Título del frame de registro de usuario
+titulo_registro = tk.Label(frame_central_registro, text="Registrar Usuario", font=("Arial", 16, "bold"))
+titulo_registro.pack(pady=10)
+
+# Etiqueta y Combobox para el tipo de usuario
+tk.Label(frame_central_registro, text="Tipo de Usuario:").pack(pady=5)
+opciones_tipo_usuario_registro = ['estudiante', 'directivo', 'docente', 'publico_general']
+combo_tipo_usuario_registro = ttk.Combobox(frame_central_registro, values=opciones_tipo_usuario_registro, state='readonly')
+combo_tipo_usuario_registro.pack(pady=5)
+
+# Campos de entrada
+tk.Label(frame_central_registro, text="Nombre:").pack(pady=5)
+entrada_nombre_registro = tk.Entry(frame_central_registro)
+entrada_nombre_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Apellidos:").pack(pady=5)
+entrada_apellido_registro = tk.Entry(frame_central_registro)
+entrada_apellido_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Fecha de Nacimiento:").pack(pady=5)
+entrada_fecha_nacimiento_registro = DateEntry(frame_central_registro, date_pattern='yyyy-mm-dd')
+entrada_fecha_nacimiento_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Tipo de Documento:").pack(pady=5)
+opciones_tipo_documento_registro = ['CC', 'CE', 'PA', 'TI', 'PPT', 'PEP']
+combo_tipo_documento_registro = ttk.Combobox(frame_central_registro, values=opciones_tipo_documento_registro, state='readonly')
+combo_tipo_documento_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Número de Documento:").pack(pady=5)
+entrada_numero_documento_registro = tk.Entry(frame_central_registro)
+entrada_numero_documento_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Correo Electrónico:").pack(pady=5)
+entrada_correo_registro = tk.Entry(frame_central_registro)
+entrada_correo_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Contraseña:").pack(pady=5)
+entrada_contrasena_registro = tk.Entry(frame_central_registro, show='*')
+entrada_contrasena_registro.pack(pady=5)
+
+tk.Label(frame_central_registro, text="Teléfono:").pack(pady=5)
+entrada_telefono_registro = tk.Entry(frame_central_registro)
+entrada_telefono_registro.pack(pady=5)
+
+# Mensaje de éxito o error para registro
+mensaje_registro = tk.Label(frame_central_registro, text="")
+mensaje_registro.pack(pady=10)
+
+# Botón para registrar usuario
+tk.Button(frame_central_registro, text="Registrar", command=registrar_usuario, width=20).pack(pady=10)
+
+# Botón para volver
+tk.Button(frame_central_registro, text="Volver", command=mostrar_ventana_login, width=20).pack(pady=10)
+
 
 # Frame de bienvenida
 ventana_principal = tk.Frame(ventana)
@@ -230,72 +510,14 @@ titulo_bienvenida = tk.Label(ventana_principal, text="¡Bienvenido! ¿Qué desea
 titulo_bienvenida.pack(pady=20)
 
 # Botones de bienvenida
-tk.Button(ventana_principal, text="Agregar un nuevo usuario", command=mostrar_ventana_insertar, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Buscar un usuario ya existente", command=mostrar_ventana_buscar, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Eliminar un usuario", command=mostrar_ventana_eliminar, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Actualizar un usuario", command=mostrar_ventana_actualizar, width=30).pack(pady=10)
+tk.Button(ventana_principal, text="Pedir un libro", command=mostrar_ventana_prestar, width=30).pack(pady=10)
 
-# Frame para insertar usuario
-frame_insertar = tk.Frame(ventana)
-frame_insertar.pack(fill=tk.BOTH, expand=True)
 
-# Crear un subframe para centrar el contenido
-subframe_insertar = tk.Frame(frame_insertar)
-subframe_insertar.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
-# Título del frame de insertar usuario
-titulo_insertar = tk.Label(subframe_insertar, text="Insertar Usuario", font=("Arial", 16, "bold"))
-titulo_insertar.grid(row=0, column=0, columnspan=2, pady=10)
 
-# Etiqueta y Combobox para el tipo de usuario
-tk.Label(subframe_insertar, text="Tipo de Usuario:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-opciones_tipo_usuario = ['estudiante', 'directivo', 'docente', 'publico_general']
-combo_tipo_usuario = ttk.Combobox(subframe_insertar, values=opciones_tipo_usuario, state='readonly')
-combo_tipo_usuario.grid(row=1, column=1, padx=5, pady=5)
-
-# Campos de entrada
-tk.Label(subframe_insertar, text="Nombre:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_nombre = tk.Entry(subframe_insertar)
-entrada_nombre.grid(row=2, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Apellidos:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_apellido = tk.Entry(subframe_insertar)
-entrada_apellido.grid(row=3, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Fecha de Nacimiento:").grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_fecha_nacimiento = DateEntry(subframe_insertar, date_pattern='yyyy-mm-dd')
-entrada_fecha_nacimiento.grid(row=4, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Tipo de Documento:").grid(row=5, column=0, sticky=tk.W, padx=5, pady=5)
-opciones_tipo_documento = ['CC', 'CE', 'PA', 'TI', 'PPT', 'PEP']
-combo_tipo_documento = ttk.Combobox(subframe_insertar, values=opciones_tipo_documento, state='readonly')
-combo_tipo_documento.grid(row=5, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Número de Documento:").grid(row=6, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_numero_documento = tk.Entry(subframe_insertar)
-entrada_numero_documento.grid(row=6, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Correo Electrónico:").grid(row=7, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_correo = tk.Entry(subframe_insertar)
-entrada_correo.grid(row=7, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Contraseña:").grid(row=8, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_contrasena = tk.Entry(subframe_insertar, show='*')
-entrada_contrasena.grid(row=8, column=1, padx=5, pady=5)
-
-tk.Label(subframe_insertar, text="Teléfono:").grid(row=9, column=0, sticky=tk.W, padx=5, pady=5)
-entrada_telefono = tk.Entry(subframe_insertar)
-entrada_telefono.grid(row=9, column=1, padx=5, pady=5)
-
-# Mensaje de éxito o error
-mensaje = tk.Label(subframe_insertar, text="")
-mensaje.grid(row=10, column=0, columnspan=2, pady=10)
-
-# Botón para insertar usuario
-tk.Button(subframe_insertar, text="Insertar Usuario", command=insertar_empleado, width=20).grid(row=11, column=0, columnspan=2, pady=10)
-
-# Botón para volver a la pantalla principal
-tk.Button(subframe_insertar, text="Volver", command=mostrar_ventana_principal, width=20).grid(row=12, column=0, columnspan=2, pady=10)
 
 # Frame para buscar usuario
 frame_buscar = tk.Frame(ventana)
@@ -316,28 +538,27 @@ tk.Button(frame_buscar, text="Mostrar Usuario", command=mostrar_empleado, width=
 # Botón para mostrar todos los usuarios
 tk.Button(frame_buscar, text="Mostrar Todos los Usuarios", command=mostrar_todos_usuarios, width=25).pack(pady=10)
 
-# Frame para el Treeview
-frame_tree = tk.Frame(frame_buscar)
-frame_tree.pack(fill=tk.BOTH, expand=True)
-
-# Crear Treeview para mostrar resultados con la nueva columna "ID del usuario"
-columns = ("ID_usuario", "Tipo_usuario", "Nombre", "Apellidos", "Tipo_documento", "Numero_documento", "Fecha_nacimiento", "Correo_electronico", "Contraseña", "Telefono")
-tree = ttk.Treeview(frame_tree, columns=columns, show='headings')
-
-# Definir las cabeceras
-for col in columns:
-    tree.heading(col, text=col)
-    tree.column(col, width=120, anchor="w")
-
-tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-# Agregar barra de desplazamiento vertical
-scrollbar = tk.Scrollbar(frame_tree, orient="vertical", command=tree.yview)
-scrollbar.pack(side="right", fill="y")
-tree.config(yscrollcommand=scrollbar.set)
+# Crear Treeview para mostrar resultados en el frame de buscar usuario
+frame_tree_buscar = tk.Frame(frame_buscar)
+frame_tree_buscar.pack(fill=tk.BOTH, expand=True)
+columns_buscar = ("ID_usuario", "Tipo_usuario", "Nombre", "Apellidos", "Tipo_documento", "Numero_documento", "Fecha_nacimiento", "Correo_electronico", "Contraseña", "Telefono")
+tree_buscar = ttk.Treeview(frame_tree_buscar, columns=columns_buscar, show='headings')
+for col in columns_buscar:
+    tree_buscar.heading(col, text=col)
+    tree_buscar.column(col, width=120, anchor="w")
+tree_buscar.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_buscar = tk.Scrollbar(frame_tree_buscar, orient="vertical", command=tree_buscar.yview)
+scrollbar_buscar.pack(side="right", fill="y")
+tree_buscar.config(yscrollcommand=scrollbar_buscar.set)
 
 # Botón para volver a la pantalla principal
 tk.Button(frame_buscar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
+
+
+
+
+
+
 
 # Frame para eliminar usuario
 frame_eliminar = tk.Frame(ventana)
@@ -361,6 +582,11 @@ mensaje_eliminar.pack(pady=10)
 
 # Botón para volver a la pantalla principal
 tk.Button(frame_eliminar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
+
+
+
+
+
 
 # Frame para actualizar usuario
 frame_actualizar = tk.Frame(ventana)
@@ -403,15 +629,65 @@ entrada_contrasena_actualizar.pack(pady=5)
 mensaje_actualizar = tk.Label(frame_actualizar, text="")
 mensaje_actualizar.pack(pady=10)
 
+# Botón para buscar y rellenar información del usuario
+tk.Button(frame_actualizar, text="Buscar Usuario", command=buscar_informacion_usuario, width=20).pack(pady=10)
+
 # Botón para actualizar usuario
 tk.Button(frame_actualizar, text="Actualizar Usuario", command=actualizar_empleado, width=20).pack(pady=10)
 
 # Botón para volver a la pantalla principal
 tk.Button(frame_actualizar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
 
-# Mostrar la ventana principal inicialmente
-mostrar_ventana_principal()
+
+
+
+
+
+
+# Frame para pedir libro
+frame_prestar = tk.Frame(ventana)
+frame_prestar.pack(fill=tk.BOTH, expand=True)
+
+# Título del frame de buscar usuario
+titulo_prestar = tk.Label(frame_prestar, text="Pedir Libro", font=("Arial", 16, "bold"))
+titulo_prestar.pack(pady=10)
+
+# Etiqueta y campo de entrada para pedir libro
+tk.Label(frame_prestar, text="ID del Libro a Pedir:").pack(pady=5)
+entrada_prestar = tk.Entry(frame_prestar)
+entrada_prestar.pack(pady=5)
+
+# Etiqueta y campo de usuario a pedir libro
+tk.Label(frame_prestar, text="Número de documento:").pack(pady=5)
+entrada_prestar_documento = tk.Entry(frame_prestar)
+entrada_prestar_documento.pack(pady=5)
+
+tk.Label(frame_prestar, text="Fecha:").pack(pady=5)
+entrada_prestar_fecha = DateEntry(frame_prestar, date_pattern='yyyy-mm-dd')
+entrada_prestar_fecha.pack(pady=5)
+
+# Botón para pedir libro
+tk.Button(frame_prestar, text="Pedir Libro", command=prestar_libro, width=20).pack(pady=10)
+
+# Botón para mostrar todos los libros disponibles
+tk.Button(frame_prestar, text="Mostrar Libros Disponibles", command=mostrar_libros_disponibles, width=25).pack(pady=10)
+
+# Crear Treeview para mostrar resultados en el frame de pedir libro
+frame_tree_prestar = tk.Frame(frame_prestar)
+frame_tree_prestar.pack(fill=tk.BOTH, expand=True)
+columns_prestar = ("ID_libro", "Titulo", "Autor", "Año de Publicación", "Género", "Resumen", "Ejemplares Disponibles", "Estado")
+tree_prestar = ttk.Treeview(frame_tree_prestar, columns=columns_prestar, show='headings')
+for col in columns_prestar:
+    tree_prestar.heading(col, text=col)
+    tree_prestar.column(col, width=120, anchor="w")
+tree_prestar.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_prestar = tk.Scrollbar(frame_tree_prestar, orient="vertical", command=tree_prestar.yview)
+scrollbar_prestar.pack(side="right", fill="y")
+tree_prestar.config(yscrollcommand=scrollbar_prestar.set)
+
+# Botón para volver a la pantalla principal
+tk.Button(frame_prestar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
+ocultar_todos_frames()
+mostrar_ventana_login()
 
 ventana.mainloop()
-
-
