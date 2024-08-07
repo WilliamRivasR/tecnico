@@ -26,6 +26,9 @@ def mostrar_ventana_principal():
     frame_prestar.pack_forget()
     frame_login.pack_forget()
 
+    # Actualizar el texto del título de bienvenida
+    titulo_bienvenida.config(text=f"¡Bienvenido, {nombre_usuario}! ¿Qué deseas hacer?")
+
 
 def mostrar_ventana_buscar():
     ventana_principal.pack_forget()
@@ -34,10 +37,6 @@ def mostrar_ventana_buscar():
 def mostrar_ventana_eliminar():
     ventana_principal.pack_forget()
     frame_eliminar.pack(fill=tk.BOTH, expand=True)
-
-def mostrar_ventana_actualizar():
-    ventana_principal.pack_forget()
-    frame_actualizar.pack(fill=tk.BOTH, expand=True)
 
 def mostrar_ventana_prestar():
     ventana_principal.pack_forget()
@@ -76,6 +75,7 @@ def centrar_frame_central(event):
 
 # Función para iniciar sesión
 def iniciar_sesion():
+    global nombre_usuario
     correo = entrada_correo_login.get().strip()
     contrasena = entrada_contrasena_login.get().strip()
 
@@ -99,6 +99,10 @@ def iniciar_sesion():
             resultado = result.fetchone()
 
         if resultado and resultado[0] == 1:  # Asumimos que el procedimiento devuelve 1 si el usuario es válido
+            # Obtener el nombre del usuario
+            cursor.execute("SELECT Nombre FROM usuarios WHERE Correo_electronico = %s", (correo,))
+            nombre_usuario = cursor.fetchone()[0]
+
             mensaje_login.config(text="Inicio de sesión exitoso.")
             mostrar_ventana_principal()
         else:
@@ -132,7 +136,7 @@ def registrar_usuario():
         cursor = conexion.cursor()
         cursor.callproc('InsertarUsuario', (Tipo_usuario, Nombre, Apellidos, Tipo_documento, Numero_documento, Fecha_nacimiento, Correo_electronico, Contraseña, Telefono))
         conexion.commit()
-        mensaje_registro.config(text="Usuario registrado correctamente!")
+        mensaje_registro.config(text="Usuario registrado correctamente! Ahora puedes inciar sesión")
     except mysql.connector.Error as error:
         mensaje_registro.config(text=f"Error al registrar usuario: {error}")
     finally:
@@ -231,12 +235,13 @@ def mostrar_libros_disponibles():
 
 
 def prestar_libro():
-    numero_documento = entrada_prestar_documento.get().strip()
     ID_libro = entrada_prestar.get().strip()
     fecha = entrada_prestar_fecha.get().strip()
+    correo_electronico = entrada_correo_login.get().strip()
+    contrasena = entrada_contrasena_login.get().strip()
 
-    if not numero_documento or not ID_libro:
-        messagebox.showwarning("Entrada Inválida", "Por favor, ingrese el número de documento y el ID del libro.")
+    if not ID_libro:
+        messagebox.showwarning("Entrada Inválida", "Por favor, ingrese el ID del libro.")
         return
 
     try:
@@ -248,11 +253,24 @@ def prestar_libro():
         )
         cursor = conexion.cursor()
 
-        # Obtener los libros prestados actuales
-        cursor.callproc('AgregarLibroPrestado', (numero_documento, ID_libro, fecha))
-        conexion.commit()
+        # Obtener el número de documento del usuario
+        select_query = """
+                    SELECT Numero_documento
+                    FROM usuarios 
+                    WHERE Correo_electronico = %s AND Contraseña = %s
+                """
+        cursor.execute(select_query, (correo_electronico, contrasena))
+        resultado = cursor.fetchone()
 
-        messagebox.showinfo("Éxito", "Libro prestado correctamente.")
+        if resultado:
+            numero_documento = resultado[0]  # Desempaqueta el número de documento
+
+            # Obtener los libros prestados actuales
+            cursor.callproc('AgregarLibroPrestado', (numero_documento, ID_libro, fecha))
+            conexion.commit()
+
+            messagebox.showinfo("Éxito", "Libro prestado correctamente.")
+
 
     except mysql.connector.Error as error:
         messagebox.showerror("Error", f"Error al prestar el libro: {error}")
@@ -264,14 +282,10 @@ def prestar_libro():
 
 
 def eliminar_empleado():
-    Numero_documento = entrada_eliminar.get().strip()
+    correo_electronico = entrada_correo_login.get().strip()
+    contrasena = entrada_contrasena_login.get().strip()
 
-    # Verificar que el campo necesario está completo
-    if not Numero_documento:
-        mensaje_eliminar.config(text="Por favor, ingrese el número de documento.")
-        return
-
-    confirmacion = messagebox.askyesno("Confirmar Eliminación", f"¿Estás seguro de que deseas eliminar el usuario con el número de documento {Numero_documento}?")
+    confirmacion = messagebox.askyesno("Confirmar Eliminación", "¿Estás seguro de que deseas eliminar tu cuenta? Tendrás que volver a registrarte")
     if not confirmacion:
         return
 
@@ -283,21 +297,41 @@ def eliminar_empleado():
             database=database
         )
         cursor = conexion.cursor()
-        cursor.callproc('BorrarUsuario', (Numero_documento,))
-        conexion.commit()
 
-        # Verificar si se eliminó algún registro
-        if cursor.rowcount > 0:
-            mensaje_eliminar.config(text=f"Usuario con número de documento {Numero_documento} eliminado correctamente.")
+        # Obtener el número de documento del usuario
+        select_query = """
+            SELECT Numero_documento
+            FROM usuarios 
+            WHERE Correo_electronico = %s AND Contraseña = %s
+        """
+        cursor.execute(select_query, (correo_electronico, contrasena))
+        resultado = cursor.fetchone()
+
+        if resultado:
+            Numero_documento = resultado[0]  # Desempaqueta el número de documento
+
+            # Llamar al procedimiento almacenado para eliminar el usuario
+            cursor.callproc('BorrarUsuario', (Numero_documento,))
+            conexion.commit()
+
+            # Verificar si se eliminó algún registro
+            if cursor.rowcount > 0:
+                mensaje_eliminar.config(text="Cuenta eliminada correctamente.")
+            else:
+                mensaje_eliminar.config(text=f"No se encontró ningún usuario con el número de documento {Numero_documento}.")
         else:
-            mensaje_eliminar.config(text=f"No se encontró ningún usuario con el número de documento {Numero_documento}.")
+            mensaje_eliminar.config(text="No se encontró ningún usuario con ese correo electrónico y contraseña.")
+
     except mysql.connector.Error as error:
         mensaje_eliminar.config(text=f"Error al eliminar el usuario: {error}")
         print(f"Error al eliminar el usuario: {error}")
     finally:
         if conexion.is_connected():
+            ocultar_todos_frames()
+            mostrar_ventana_login()
             cursor.close()
             conexion.close()
+
 
 def actualizar_empleado():
     Numero_documento = entrada_numero_documento_actualizar.get()
@@ -342,10 +376,11 @@ def actualizar_empleado():
 
 
 def buscar_informacion_usuario():
-    Numero_documento = entrada_numero_documento_actualizar.get().strip()
+    correo_electronico = entrada_correo_login.get().strip()
+    contrasena = entrada_contrasena_login.get().strip()
 
-    if not Numero_documento:
-        mensaje_actualizar.config(text="Por favor, ingrese un número de documento.")
+    if not correo_electronico or not contrasena:
+        mensaje_actualizar.config(text="Por favor, ingrese correo electrónico y contraseña.")
         return
 
     try:
@@ -357,34 +392,39 @@ def buscar_informacion_usuario():
         )
         cursor = conexion.cursor()
         select_query = """
-            SELECT Nombre, Apellidos, Fecha_nacimiento, Correo_electronico, Telefono, Contraseña 
+            SELECT Numero_documento, Nombre, Apellidos, Fecha_nacimiento, Correo_electronico, Telefono, Contraseña 
             FROM usuarios 
-            WHERE Numero_documento = %s
+            WHERE Correo_electronico = %s AND Contraseña = %s
         """
-        cursor.execute(select_query, (Numero_documento,))
+        cursor.execute(select_query, (correo_electronico, contrasena))
         resultado = cursor.fetchone()
 
         if resultado:
+            entrada_numero_documento_actualizar.delete(0, tk.END)
+            entrada_numero_documento_actualizar.insert(0, resultado[0])
+
             entrada_nombre_actualizar.delete(0, tk.END)
-            entrada_nombre_actualizar.insert(0, resultado[0])
+            entrada_nombre_actualizar.insert(0, resultado[1])
 
             entrada_apellido_actualizar.delete(0, tk.END)
-            entrada_apellido_actualizar.insert(0, resultado[1])
+            entrada_apellido_actualizar.insert(0, resultado[2])
 
-            entrada_fecha_nacimiento_actualizar.set_date(resultado[2])
+            entrada_fecha_nacimiento_actualizar.set_date(resultado[3])
 
             entrada_correo_actualizar.delete(0, tk.END)
-            entrada_correo_actualizar.insert(0, resultado[3])
+            entrada_correo_actualizar.insert(0, resultado[4])
 
             entrada_telefono_actualizar.delete(0, tk.END)
-            entrada_telefono_actualizar.insert(0, resultado[4])
+            entrada_telefono_actualizar.insert(0, resultado[5])
 
             entrada_contrasena_actualizar.delete(0, tk.END)
-            entrada_contrasena_actualizar.insert(0, resultado[5])
+            entrada_contrasena_actualizar.insert(0, resultado[6])
 
             mensaje_actualizar.config(text="Información del usuario cargada correctamente.")
+            ventana_principal.pack_forget()
+            frame_actualizar.pack(fill=tk.BOTH, expand=True)
         else:
-            mensaje_actualizar.config(text="No se encontró ningún usuario con ese número de documento.")
+            mensaje_actualizar.config(text="No se encontró ningún usuario con ese correo electrónico y contraseña.")
 
     except mysql.connector.Error as error:
         mensaje_actualizar.config(text=f"Error al buscar usuario: {error}")
@@ -392,6 +432,7 @@ def buscar_informacion_usuario():
         if conexion.is_connected():
             cursor.close()
             conexion.close()
+
 
 
 
@@ -505,15 +546,15 @@ tk.Button(frame_central_registro, text="Volver", command=mostrar_ventana_login, 
 ventana_principal = tk.Frame(ventana)
 ventana_principal.pack(fill=tk.BOTH, expand=True)
 
-# Título del frame de bienvenida
-titulo_bienvenida = tk.Label(ventana_principal, text="¡Bienvenido! ¿Qué deseas hacer?", font=("Arial", 20, "bold"))
+#titulo de bienvenida
+titulo_bienvenida = tk.Label(ventana_principal, text="", font=("Arial", 20, "bold"))
 titulo_bienvenida.pack(pady=20)
 
 # Botones de bienvenida
 tk.Button(ventana_principal, text="Buscar un usuario ya existente", command=mostrar_ventana_buscar, width=30).pack(pady=10)
-tk.Button(ventana_principal, text="Eliminar un usuario", command=mostrar_ventana_eliminar, width=30).pack(pady=10)
-tk.Button(ventana_principal, text="Actualizar un usuario", command=mostrar_ventana_actualizar, width=30).pack(pady=10)
+tk.Button(ventana_principal, text="Actualizar información", command=buscar_informacion_usuario, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Pedir un libro", command=mostrar_ventana_prestar, width=30).pack(pady=10)
+tk.Button(ventana_principal, text="Eliminar cuenta", command=eliminar_empleado, width=30).pack(pady=10)
 
 
 
@@ -628,9 +669,6 @@ entrada_contrasena_actualizar.pack(pady=5)
 # Mensaje de éxito o error para actualización
 mensaje_actualizar = tk.Label(frame_actualizar, text="")
 mensaje_actualizar.pack(pady=10)
-
-# Botón para buscar y rellenar información del usuario
-tk.Button(frame_actualizar, text="Buscar Usuario", command=buscar_informacion_usuario, width=20).pack(pady=10)
 
 # Botón para actualizar usuario
 tk.Button(frame_actualizar, text="Actualizar Usuario", command=actualizar_empleado, width=20).pack(pady=10)
