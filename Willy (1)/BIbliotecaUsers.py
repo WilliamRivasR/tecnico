@@ -6,33 +6,40 @@ import mysql.connector
 
 # Configuración de la base de datos
 user = 'root'
-password = ''
+password = '1234'
 host = 'localhost'
 database = 'biblioteca_escolar'
 
 
 def ocultar_todos_frames():
-    frame_buscar.pack_forget()
     frame_eliminar.pack_forget()
     frame_actualizar.pack_forget()
     frame_prestar.pack_forget()
     frame_registro.pack_forget()
+    frame_agregar.pack_forget()
+    frame_usuarios.pack_forget()
 
 def mostrar_ventana_principal():
     ventana_principal.pack(fill=tk.BOTH, expand=True)
-    frame_buscar.pack_forget()
     frame_eliminar.pack_forget()
     frame_actualizar.pack_forget()
     frame_prestar.pack_forget()
     frame_login.pack_forget()
+    frame_agregar.pack_forget()
+    frame_usuarios.pack_forget()
 
     # Actualizar el texto del título de bienvenida
     titulo_bienvenida.config(text=f"¡Bienvenido, {nombre_usuario}! ¿Qué deseas hacer?")
 
-
-def mostrar_ventana_buscar():
+def mostrar_ventana_prestamos():
     ventana_principal.pack_forget()
-    frame_buscar.pack(fill=tk.BOTH, expand=True)
+    frame_usuarios.pack(fill=tk.BOTH, expand=True)
+
+
+def mostrar_ventana_agregar():
+    ventana_principal.pack_forget()
+    frame_agregar.pack(fill=tk.BOTH, expand=True)
+
 
 def mostrar_ventana_eliminar():
     ventana_principal.pack_forget()
@@ -146,65 +153,6 @@ def registrar_usuario():
 
 
 
-def mostrar_empleado():
-    Numero_documento = entrada_buscar.get()
-    try:
-        conexion = mysql.connector.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database
-        )
-        cursor = conexion.cursor()
-        select_query = """
-            SELECT * FROM usuarios WHERE Numero_documento = %s
-        """
-        cursor.execute(select_query, (Numero_documento,))
-        resultados = cursor.fetchall()
-        for row in tree_buscar.get_children():
-            tree_buscar.delete(row)
-        if resultados:
-            for row in resultados:
-                tree_buscar.insert("", "end", values=row)
-        else:
-            tree_buscar.insert("", "end", values=("No se encontró ningún usuario con ese número de documento.",))
-    except mysql.connector.Error as error:
-        tree_buscar.insert("", "end", values=("Error al consultar la base de datos.",))
-    finally:
-        if conexion.is_connected():
-            cursor.close()
-            conexion.close()
-
-
-
-def mostrar_todos_usuarios():
-    try:
-        conexion = mysql.connector.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database
-        )
-        cursor = conexion.cursor()
-        select_query = "SELECT * FROM usuarios"
-        cursor.execute(select_query)
-        resultados = cursor.fetchall()
-
-        for row in tree_buscar.get_children():
-            tree_buscar.delete(row)
-
-        if resultados:
-            for row in resultados:
-                tree_buscar.insert("", "end", values=row)
-        else:
-            tree_buscar.insert("", "end", values=("No se encontraron usuarios en la base de datos.",))
-    except mysql.connector.Error as error:
-        tree_buscar.insert("", "end", values=("Error al consultar la base de datos.",))
-    finally:
-        if conexion.is_connected():
-            cursor.close()
-            conexion.close()
-
 def mostrar_libros_disponibles():
     try:
         conexion = mysql.connector.connect(
@@ -279,6 +227,72 @@ def prestar_libro():
         if conexion.is_connected():
             cursor.close()
             conexion.close()
+
+
+
+def mostrar_usuarios_prestamos():
+    try:
+        conexion = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conexion.cursor()
+
+        # Consulta para obtener todos los préstamos
+        select_query = "SELECT * FROM prestamos"
+        cursor.execute(select_query)
+        resultados = cursor.fetchall()
+
+        for row in tree_usuarios.get_children():
+            tree_usuarios.delete(row)
+
+        if resultados:
+            for row in resultados:
+                id_libro = row[1]  # Asume que el ID del libro está en la segunda columna
+                # Consulta para obtener el nombre del libro
+                cursor.execute("SELECT Titulo FROM libros WHERE ID_libro = %s", (id_libro,))
+                nombre_libro = cursor.fetchone()
+                if nombre_libro:
+                    nombre_libro = nombre_libro[0]
+                else:
+                    nombre_libro = "Desconocido"
+                # Inserta en el tree_usuarios el préstamo con el nombre del libro
+                tree_usuarios.insert("", "end", values=(row[0], nombre_libro, row[2], row[3]))  # Ajusta los índices según la estructura de tu tabla
+        else:
+            tree_usuarios.insert("", "end", values=("No se encontraron préstamos en la base de datos.",))
+    except mysql.connector.Error as error:
+        tree_usuarios.insert("", "end", values=("Error al consultar la base de datos.",))
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+def eliminar_prestamo():
+    id_prestamo = entry_id_prestamo.get()
+    if id_prestamo:
+        try:
+            conexion = mysql.connector.connect(
+                host=host,
+                user=user,
+                password=password,
+                database=database
+            )
+            cursor = conexion.cursor()
+            delete_query = "DELETE FROM prestamos WHERE ID_prestamo = %s"
+            cursor.execute(delete_query, (id_prestamo,))
+            conexion.commit()
+            print("Préstamo eliminado con éxito.")
+            mostrar_usuarios_prestamos()  # Actualiza la lista de préstamos
+        except mysql.connector.Error as error:
+            print(f"Error al eliminar el préstamo: {error}")
+        finally:
+            if conexion.is_connected():
+                cursor.close()
+                conexion.close()
+    else:
+        print("Por favor, ingresa el ID del préstamo.")
 
 
 def eliminar_empleado():
@@ -369,6 +383,50 @@ def actualizar_empleado():
         conexion.commit()
     except mysql.connector.Error as error:
         mensaje_actualizar.config(text=f"Error al actualizar usuario: {error}")
+    finally:
+        if conexion.is_connected():
+            cursor.close()
+            conexion.close()
+
+
+
+def agregar_libro():
+    Titulo = entrada_titulo_agregar.get()
+    Autor = entrada_autor_agregar.get()
+    Año = entrada_año_agregar.get()
+    Genero = entrada_genero_agregar.get()
+    Resumen = entrada_resumen_agregar.get()
+    Ejemplares = entrada_ejemplares_agregar.get()
+    Estado = entrada_estado_agregar.get()
+
+    try:
+        conexion = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conexion.cursor()
+
+        # Llamar al procedimiento almacenado
+        cursor.callproc('AgregarLibro', [Titulo, Autor, Año, Genero, Resumen, Ejemplares, Estado])
+
+        conexion.commit()
+
+        # Mostrar un mensaje de éxito
+        mensaje_agregar.config(text="Libro agregado correctamente.")
+
+        # Limpiar los campos después de agregar
+        entrada_titulo_agregar.delete(0, tk.END)
+        entrada_autor_agregar.delete(0, tk.END)
+        entrada_año_agregar.delete(0, tk.END)
+        entrada_genero_agregar.delete(0, tk.END)
+        entrada_resumen_agregar.delete(0, tk.END)
+        entrada_ejemplares_agregar.delete(0, tk.END)
+        entrada_estado_agregar.delete(0, tk.END)
+
+    except mysql.connector.Error as error:
+        mensaje_agregar.config(text=f"Error al agregar libro: {error}")
     finally:
         if conexion.is_connected():
             cursor.close()
@@ -551,49 +609,11 @@ titulo_bienvenida = tk.Label(ventana_principal, text="", font=("Arial", 20, "bol
 titulo_bienvenida.pack(pady=20)
 
 # Botones de bienvenida
-tk.Button(ventana_principal, text="Buscar un usuario ya existente", command=mostrar_ventana_buscar, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Actualizar información", command=buscar_informacion_usuario, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Pedir un libro", command=mostrar_ventana_prestar, width=30).pack(pady=10)
+tk.Button(ventana_principal, text="Prestamos", command=mostrar_ventana_prestamos, width=30).pack(pady=10)
+tk.Button(ventana_principal, text="Agregar un Libro", command=mostrar_ventana_agregar, width=30).pack(pady=10)
 tk.Button(ventana_principal, text="Eliminar cuenta", command=eliminar_empleado, width=30).pack(pady=10)
-
-
-
-
-
-# Frame para buscar usuario
-frame_buscar = tk.Frame(ventana)
-frame_buscar.pack(fill=tk.BOTH, expand=True)
-
-# Título del frame de buscar usuario
-titulo_buscar = tk.Label(frame_buscar, text="Buscar Usuario", font=("Arial", 16, "bold"))
-titulo_buscar.pack(pady=10)
-
-# Etiqueta y campo de entrada para buscar usuario
-tk.Label(frame_buscar, text="Número de Documento a Buscar:").pack(pady=5)
-entrada_buscar = tk.Entry(frame_buscar)
-entrada_buscar.pack(pady=5)
-
-# Botón para mostrar usuario
-tk.Button(frame_buscar, text="Mostrar Usuario", command=mostrar_empleado, width=20).pack(pady=10)
-
-# Botón para mostrar todos los usuarios
-tk.Button(frame_buscar, text="Mostrar Todos los Usuarios", command=mostrar_todos_usuarios, width=25).pack(pady=10)
-
-# Crear Treeview para mostrar resultados en el frame de buscar usuario
-frame_tree_buscar = tk.Frame(frame_buscar)
-frame_tree_buscar.pack(fill=tk.BOTH, expand=True)
-columns_buscar = ("ID_usuario", "Tipo_usuario", "Nombre", "Apellidos", "Tipo_documento", "Numero_documento", "Fecha_nacimiento", "Correo_electronico", "Contraseña", "Telefono")
-tree_buscar = ttk.Treeview(frame_tree_buscar, columns=columns_buscar, show='headings')
-for col in columns_buscar:
-    tree_buscar.heading(col, text=col)
-    tree_buscar.column(col, width=120, anchor="w")
-tree_buscar.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-scrollbar_buscar = tk.Scrollbar(frame_tree_buscar, orient="vertical", command=tree_buscar.yview)
-scrollbar_buscar.pack(side="right", fill="y")
-tree_buscar.config(yscrollcommand=scrollbar_buscar.set)
-
-# Botón para volver a la pantalla principal
-tk.Button(frame_buscar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
 
 
 
@@ -681,6 +701,59 @@ tk.Button(frame_actualizar, text="Volver", command=mostrar_ventana_principal, wi
 
 
 
+# Frame para agregar libro
+frame_agregar = tk.Frame(ventana)
+frame_agregar.pack(fill=tk.BOTH, expand=True)
+
+# Título del frame de agregar libro
+titulo_agregar = tk.Label(frame_agregar, text="Agregar Libro Nuevo", font=("Arial", 16, "bold"))
+titulo_agregar.pack(pady=10)
+
+# Etiqueta y campos de entrada para agregar libro
+tk.Label(frame_agregar, text="Titulo:").pack(pady=5)
+entrada_titulo_agregar = tk.Entry(frame_agregar)
+entrada_titulo_agregar.pack(pady=5)
+
+tk.Label(frame_agregar, text="Autor:").pack(pady=5)
+entrada_autor_agregar = tk.Entry(frame_agregar)
+entrada_autor_agregar.pack(pady=5)
+
+# Spinbox para seleccionar el año de publicación
+tk.Label(frame_agregar, text="Año de Publicación:").pack(pady=5)
+entrada_año_agregar = tk.Spinbox(frame_agregar, from_=1900, to=2100, format="%04.0f", width=5)
+entrada_año_agregar.pack(pady=5)
+
+tk.Label(frame_agregar, text="Género:").pack(pady=5)
+entrada_genero_agregar = tk.Entry(frame_agregar)
+entrada_genero_agregar.pack(pady=5)
+
+tk.Label(frame_agregar, text="Resumen:").pack(pady=5)
+entrada_resumen_agregar = tk.Entry(frame_agregar)
+entrada_resumen_agregar.pack(pady=5)
+
+tk.Label(frame_agregar, text="Ejemplares disponibles:").pack(pady=5)
+entrada_ejemplares_agregar = tk.Entry(frame_agregar)
+entrada_ejemplares_agregar.pack(pady=5)
+
+tk.Label(frame_agregar, text="Estado:").pack(pady=5)
+entrada_estado_agregar = tk.Entry(frame_agregar)
+entrada_estado_agregar.pack(pady=5)
+
+# Mensaje de éxito o error al agregar el libro
+mensaje_agregar = tk.Label(frame_agregar, text="")
+mensaje_agregar.pack(pady=10)
+
+# Botón para agregar el libro
+tk.Button(frame_agregar, text="Agregar Libro", command=agregar_libro, width=20).pack(pady=10)
+
+# Botón para volver a la pantalla principal
+tk.Button(frame_agregar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
+
+
+
+
+
+
 
 # Frame para pedir libro
 frame_prestar = tk.Frame(ventana)
@@ -694,11 +767,6 @@ titulo_prestar.pack(pady=10)
 tk.Label(frame_prestar, text="ID del Libro a Pedir:").pack(pady=5)
 entrada_prestar = tk.Entry(frame_prestar)
 entrada_prestar.pack(pady=5)
-
-# Etiqueta y campo de usuario a pedir libro
-tk.Label(frame_prestar, text="Número de documento:").pack(pady=5)
-entrada_prestar_documento = tk.Entry(frame_prestar)
-entrada_prestar_documento.pack(pady=5)
 
 tk.Label(frame_prestar, text="Fecha:").pack(pady=5)
 entrada_prestar_fecha = DateEntry(frame_prestar, date_pattern='yyyy-mm-dd')
@@ -725,6 +793,51 @@ tree_prestar.config(yscrollcommand=scrollbar_prestar.set)
 
 # Botón para volver a la pantalla principal
 tk.Button(frame_prestar, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
+
+
+
+
+
+
+
+
+# Frame para ver usuarios con préstamos
+frame_usuarios = tk.Frame(ventana)
+frame_usuarios.pack(fill=tk.BOTH, expand=True)
+
+# Título del frame de buscar usuario
+titulo_usuarios = tk.Label(frame_usuarios, text="Todos los usuarios con libros prestados", font=("Arial", 16, "bold"))
+titulo_usuarios.pack(pady=10)
+
+# Botón para mostrar todos los préstamos
+tk.Button(frame_usuarios, text="Mostrar Usuarios", command=mostrar_usuarios_prestamos, width=25).pack(pady=10)
+
+# Crear Treeview para mostrar resultados en el frame de préstamos
+frame_tree_usuarios = tk.Frame(frame_usuarios)
+frame_tree_usuarios.pack(fill=tk.BOTH, expand=True)
+columns_usuarios = ("ID de Prestamo", "Nombre del Libro", "Número de Documento", "Fecha de Prestamo")
+tree_usuarios = ttk.Treeview(frame_tree_usuarios, columns=columns_usuarios, show='headings')
+for col in columns_usuarios:
+    tree_usuarios.heading(col, text=col)
+    tree_usuarios.column(col, width=120, anchor="w")
+tree_usuarios.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+scrollbar_usuarios = tk.Scrollbar(frame_tree_usuarios, orient="vertical", command=tree_usuarios.yview)
+scrollbar_usuarios.pack(side="right", fill="y")
+tree_usuarios.config(yscrollcommand=scrollbar_usuarios.set)
+
+# Entrada para el ID del préstamo
+tk.Label(frame_usuarios, text="ID del Préstamo a Eliminar:", font=("Arial", 12)).pack(pady=5)
+entry_id_prestamo = tk.Entry(frame_usuarios, width=20)
+entry_id_prestamo.pack(pady=5)
+
+# Botón para eliminar préstamo
+tk.Button(frame_usuarios, text="Eliminar Préstamo", command=eliminar_prestamo, width=25).pack(pady=10)
+
+# Botón para volver a la pantalla principal
+tk.Button(frame_usuarios, text="Volver", command=mostrar_ventana_principal, width=20).pack(pady=10)
+
+
+
 ocultar_todos_frames()
 mostrar_ventana_login()
 
