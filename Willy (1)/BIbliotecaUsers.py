@@ -85,6 +85,7 @@ def iniciar_sesion():
     global nombre_usuario
     correo = entrada_correo_login.get().strip()
     contrasena = entrada_contrasena_login.get().strip()
+    tipo_usuario = combo_tipo_usuario_login.get().strip()
 
     if not correo or not contrasena:
         mensaje_login.config(text="Por favor, ingrese correo electrónico y contraseña.")
@@ -98,17 +99,25 @@ def iniciar_sesion():
             database=database
         )
         cursor = conexion.cursor()
-        cursor.callproc('VerificarUsuario', [correo, contrasena])
+        cursor.callproc('VerificarUsuario', [correo, contrasena, tipo_usuario])
 
         # Recuperar el resultado del procedimiento almacenado
         resultado = None
         for result in cursor.stored_results():
             resultado = result.fetchone()
 
-        if resultado and resultado[0] == 1:  # Asumimos que el procedimiento devuelve 1 si el usuario es válido
+        if resultado and resultado[0] == 1:  # Usuario válido
             # Obtener el nombre del usuario
             cursor.execute("SELECT Nombre FROM usuarios WHERE Correo_electronico = %s", (correo,))
             nombre_usuario = cursor.fetchone()[0]
+
+            # Mostrar u ocultar botones según el tipo de usuario
+            if tipo_usuario in ('docente', 'directivo'):
+                btn_prestamos.pack(pady=10)  # Mostrar botón de préstamos
+                btn_agregar_libro.pack(pady=10)  # Mostrar botón para agregar libro
+            else:
+                btn_prestamos.pack_forget()  # Ocultar botón de préstamos
+                btn_agregar_libro.pack_forget()  # Ocultar botón para agregar libro
 
             mensaje_login.config(text="Inicio de sesión exitoso.")
             mostrar_ventana_principal()
@@ -121,6 +130,7 @@ def iniciar_sesion():
         if conexion.is_connected():
             cursor.close()
             conexion.close()
+
 
 def registrar_usuario():
     Tipo_usuario = combo_tipo_usuario_registro.get().strip()
@@ -507,6 +517,12 @@ frame_login = tk.Frame(ventana)
 titulo_login = tk.Label(frame_login, text="Iniciar Sesión", font=("Arial", 16, "bold"))
 titulo_login.pack(pady=10)
 
+# Etiqueta y Combobox para el tipo de usuario
+tk.Label(frame_login, text="Tipo de Usuario:").pack(pady=5)
+opciones_tipo_usuario_login = ['estudiante', 'directivo', 'docente', 'publico_general']
+combo_tipo_usuario_login = ttk.Combobox(frame_login, values=opciones_tipo_usuario_login, state='readonly')
+combo_tipo_usuario_login.pack(pady=5)
+
 # Etiqueta y campo de entrada para el correo electrónico
 tk.Label(frame_login, text="Correo Electrónico:").pack(pady=5)
 entrada_correo_login = tk.Entry(frame_login)
@@ -609,11 +625,18 @@ titulo_bienvenida = tk.Label(ventana_principal, text="", font=("Arial", 20, "bol
 titulo_bienvenida.pack(pady=20)
 
 # Botones de bienvenida
-tk.Button(ventana_principal, text="Actualizar información", command=buscar_informacion_usuario, width=30).pack(pady=10)
-tk.Button(ventana_principal, text="Pedir un libro", command=mostrar_ventana_prestar, width=30).pack(pady=10)
-tk.Button(ventana_principal, text="Prestamos", command=mostrar_ventana_prestamos, width=30).pack(pady=10)
-tk.Button(ventana_principal, text="Agregar un Libro", command=mostrar_ventana_agregar, width=30).pack(pady=10)
-tk.Button(ventana_principal, text="Eliminar cuenta", command=eliminar_empleado, width=30).pack(pady=10)
+# Definir los botones globalmente
+btn_actualizar_informacion = tk.Button(ventana_principal, text="Actualizar información", command=buscar_informacion_usuario, width=30)
+btn_pedir_libro = tk.Button(ventana_principal, text="Pedir un libro", command=mostrar_ventana_prestar, width=30)
+btn_prestamos = tk.Button(ventana_principal, text="Prestamos", command=mostrar_ventana_prestamos, width=30)
+btn_agregar_libro = tk.Button(ventana_principal, text="Agregar un Libro", command=mostrar_ventana_agregar, width=30)
+btn_eliminar_cuenta = tk.Button(ventana_principal, text="Eliminar cuenta", command=eliminar_empleado, width=30)
+
+# Empaquetar los botones (excepto los que dependen del tipo de usuario)
+btn_actualizar_informacion.pack(pady=10)
+btn_pedir_libro.pack(pady=10)
+btn_eliminar_cuenta.pack(pady=10)
+
 
 
 
