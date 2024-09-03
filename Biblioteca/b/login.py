@@ -36,21 +36,28 @@ class LoginFrame(tk.Frame):
 
     def login(self):
         user_type = self.user_type.get()
-        email = self.email.get()
-        password = self.password.get()
+        email = self.email.get().strip()
+        password = self.password.get().strip()
 
         if not email or not password:
             self.message.config(text="Please enter email and password.")
             return
 
-        cursor = self.db.call_procedure('VerificarUsuario', [email, password, user_type])
-        result = next(cursor.stored_results()).fetchone()
+        try:
+            with DatabaseConnection() as db:
+                results = db.call_procedure('VerificarUsuario', [email, password, user_type])
 
-        if result and result[0] == 1:
-            self.message.config(text="Login successful!")
-            self.master.show_frame("usermanagement")
-        else:
-            self.message.config(text="Invalid email or password.")
+                if results:
+                    result = results[0]  # Obtén el primer resultado
+                    if result[0] == 1:
+                        self.message.config(text="Login successful!")
+                        self.master.show_frame("usermanagement")
+                    else:
+                        self.message.config(text="Invalid email or password.")
+                else:
+                    self.message.config(text="No results returned from the procedure.")
+        except Exception as e:
+            self.message.config(text=f"An error occurred: {e}")
 
     def show_register(self):
-        self.master.show_frame("registration")
+        self.master.show_frame("registration")  # Asegúrate de que este nombre coincida con el nombre de la clave en create_frames

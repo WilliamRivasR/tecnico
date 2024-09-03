@@ -6,17 +6,19 @@ class NavigationBar:
         self.parent = parent
         self.pages = pages
         self.frame = tk.Frame(parent, bg="#f0f0f0")
+        self.buttons = {}
         self.create_widgets()
 
     def create_widgets(self):
         for page_name, page_obj in self.pages.items():
-            btn = ttk.Button(self.frame, text=page_name, command=lambda p=page_obj: self.show_page(p))
+            btn = ttk.Button(self.frame, text=page_name.capitalize(), command=lambda p=page_obj: self.show_page(p))
             btn.pack(side=tk.LEFT, padx=5, pady=5)
+            self.buttons[page_name] = btn
 
     def show_page(self, page):
         for p in self.pages.values():
-            p.hide()
-        page.pack()
+            p.grid_remove()
+        page.grid()
 
     def pack(self):
         self.frame.pack(side=tk.TOP, fill=tk.X)

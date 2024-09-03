@@ -1,4 +1,3 @@
-# main.py
 import tkinter as tk
 from tkinter import ttk
 from login import LoginFrame
@@ -6,6 +5,7 @@ from registration import RegistrationFrame
 from user_management import UserManagementFrame
 from book_management import BookManagementFrame
 from loan_management import LoanManagementFrame
+from ui_components import NavigationBar
 
 class MainApplication(tk.Tk):
     def __init__(self):
@@ -17,6 +17,7 @@ class MainApplication(tk.Tk):
 
         self.create_frames()
         self.create_menu()
+        self.create_navigation_bar()
 
         self.show_frame("login")
 
@@ -24,8 +25,10 @@ class MainApplication(tk.Tk):
         self.frames = {}
         for F in (LoginFrame, RegistrationFrame, UserManagementFrame, BookManagementFrame, LoanManagementFrame):
             frame = F(self)
-            self.frames[F.__name__.lower()] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
+            frame_name = F.__name__.lower().replace("frame", "")
+            self.frames[frame_name] = frame
+            frame.grid(row=1, column=0, sticky="nsew")
+            frame.grid_remove()
 
     def create_menu(self):
         self.menu_bar = tk.Menu(self)
@@ -37,9 +40,20 @@ class MainApplication(tk.Tk):
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit)
 
+    def create_navigation_bar(self):
+        self.nav_bar = NavigationBar(self, self.frames)
+        self.nav_bar.frame.grid(row=0, column=0, sticky="ew")
+
     def show_frame(self, frame_name):
+        for frame in self.frames.values():
+            frame.grid_remove()
         frame = self.frames[frame_name]
-        frame.tkraise()
+        frame.grid()
+
+        if frame_name == "login":
+            self.nav_bar.frame.grid_remove()
+        else:
+            self.nav_bar.frame.grid()
 
     def logout(self):
         self.show_frame("login")
